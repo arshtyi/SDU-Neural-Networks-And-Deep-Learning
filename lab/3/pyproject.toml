@@ -1,5 +1,5 @@
 [project]
-name = "lab2"
+name = "lab3"
 version = "0.1.0"
 authors = [
     { name = "arshtyi", email = "arshtyi@foxmail.com" },
@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.10",
     "numpy>=2.5.3",
     "scikit-learn>=1.6",
+    "torch>=2.14.0",
 ]
 
 [tool.ruff]

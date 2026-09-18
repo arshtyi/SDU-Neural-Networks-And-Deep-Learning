@@ -137,97 +137,92 @@ def save_plots(results: list[CVResult], best_k: int, matrix: NDArray, class_name
     figure.savefig(OUTPUT_DIR / "confusion_matrix.png", dpi=180)
 
 
-def main() -> None:
-    iris = load_iris()
-    x = np.asarray(iris.data, dtype=np.float64)
-    y = np.asarray(iris.target, dtype=np.int64)
-    class_names = [str(name) for name in iris.target_names]
-    labels = np.arange(len(class_names))
-    train_indices, test_indices = train_test_split(np.arange(len(y)), test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE)
-    x_train, x_test = x[train_indices], x[test_indices]
-    y_train, y_test = y[train_indices], y[test_indices]
-    best, cv_results = cross_validate_knn(x_train, y_train)
-    print(f"数据集：{len(y)} 个样本，{x.shape[1]} 个特征，{len(class_names)} 个类别")
-    print(f"训练集：{len(y_train)}；测试集：{len(y_test)}；随机种子：{RANDOM_STATE}")
-    print("\nK 值与五折验证结果（均值和标准差）：")
+iris = load_iris()
+x = np.asarray(iris.data, dtype=np.float64)
+y = np.asarray(iris.target, dtype=np.int64)
+class_names = [str(name) for name in iris.target_names]
+labels = np.arange(len(class_names))
+train_indices, test_indices = train_test_split(np.arange(len(y)), test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE)
+x_train, x_test = x[train_indices], x[test_indices]
+y_train, y_test = y[train_indices], y[test_indices]
+best, cv_results = cross_validate_knn(x_train, y_train)
+print(f"数据集：{len(y)} 个样本，{x.shape[1]} 个特征，{len(class_names)} 个类别")
+print(f"训练集：{len(y_train)}；测试集：{len(y_test)}；随机种子：{RANDOM_STATE}")
+print("\nK 值与五折验证结果（均值和标准差）：")
+for result in cv_results:
+    fold_text = ", ".join(f"{score:.4f}" for score in result.fold_scores)
+    print(f"K={result.k:2d}: [{fold_text}]  {result.mean_accuracy:.4f} +/- {result.std_accuracy:.4f}")
+print(f"\n最优 K：{best.k}，交叉验证平均准确率：{best.mean_accuracy:.4f}")
+scaler = StandardScaler()
+x_train_scaled = scaler.fit_transform(x_train)
+x_test_scaled = scaler.transform(x_test)
+final_model = KNNClassifier(n_neighbors=best.k).fit(x_train_scaled, y_train)
+predictions = final_model.predict(x_test_scaled)
+test_accuracy = float(accuracy_score(y_test, predictions))
+matrix = confusion_matrix(y_test, predictions, labels=labels)
+report = classification_report(y_test, predictions, labels=labels, target_names=class_names, output_dict=True, zero_division=0)
+report_text = classification_report(y_test, predictions, labels=labels, target_names=class_names, digits=4, zero_division=0)
+print(f"测试集准确率：{test_accuracy:.4f}（{np.count_nonzero(predictions == y_test)}/{len(y_test)}）")
+print("\n分类报告：\n" + report_text)
+print("混淆矩阵（行：真实类别；列：预测类别）：\n", matrix)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+with (OUTPUT_DIR / "cv_results.csv").open("w", encoding="utf-8", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(["k", *[f"fold_{index}" for index in range(1, N_SPLITS + 1)], "mean_accuracy", "std_accuracy"])
     for result in cv_results:
-        fold_text = ", ".join(f"{score:.4f}" for score in result.fold_scores)
-        print(f"K={result.k:2d}: [{fold_text}]  {result.mean_accuracy:.4f} +/- {result.std_accuracy:.4f}")
-    print(f"\n最优 K：{best.k}，交叉验证平均准确率：{best.mean_accuracy:.4f}")
-    scaler = StandardScaler()
-    x_train_scaled = scaler.fit_transform(x_train)
-    x_test_scaled = scaler.transform(x_test)
-    final_model = KNNClassifier(n_neighbors=best.k).fit(x_train_scaled, y_train)
-    predictions = final_model.predict(x_test_scaled)
-    test_accuracy = float(accuracy_score(y_test, predictions))
-    matrix = confusion_matrix(y_test, predictions, labels=labels)
-    report = classification_report(y_test, predictions, labels=labels, target_names=class_names, output_dict=True, zero_division=0)
-    report_text = classification_report(y_test, predictions, labels=labels, target_names=class_names, digits=4, zero_division=0)
-    print(f"测试集准确率：{test_accuracy:.4f}（{np.count_nonzero(predictions == y_test)}/{len(y_test)}）")
-    print("\n分类报告：\n" + report_text)
-    print("混淆矩阵（行：真实类别；列：预测类别）：\n", matrix)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with (OUTPUT_DIR / "cv_results.csv").open("w", encoding="utf-8", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["k", *[f"fold_{index}" for index in range(1, N_SPLITS + 1)], "mean_accuracy", "std_accuracy"])
-        for result in cv_results:
-            writer.writerow([result.k, *result.fold_scores, result.mean_accuracy, result.std_accuracy])
-    with (OUTPUT_DIR / "test_predictions.csv").open("w", encoding="utf-8", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["sample_index", *iris.feature_names, "true_label", "predicted_label", "true_name", "predicted_name", "correct"])
-        for index, true_label, predicted_label in zip(test_indices, y_test, predictions, strict=True):
-            writer.writerow(
-                [
-                    index,
-                    *x[index],
-                    true_label,
-                    predicted_label,
-                    class_names[true_label],
-                    class_names[predicted_label],
-                    bool(true_label == predicted_label),
-                ]
-            )
-    metrics = {
-        "config": {
-            "random_state": RANDOM_STATE,
-            "test_size": TEST_SIZE,
-            "n_splits": N_SPLITS,
-            "k_values": list(K_VALUES),
-            "distance": "euclidean",
-            "standardization": "StandardScaler fitted only on each training partition",
-            "vote_tie_break": "smallest class label",
-            "selection_tie_break": "smallest k",
-        },
-        "environment": {
-            "python": platform.python_version(),
-            "platform": platform.platform(),
-            "packages": {name: version(name) for name in ("numpy", "scikit-learn", "matplotlib")},
-        },
-        "dataset": {
-            "n_samples": len(y),
-            "n_features": x.shape[1],
-            "class_names": class_names,
-            "train_size": len(y_train),
-            "test_size": len(y_test),
-            "train_class_counts": np.bincount(y_train, minlength=len(class_names)).tolist(),
-            "test_class_counts": np.bincount(y_test, minlength=len(class_names)).tolist(),
-            "train_indices": train_indices.tolist(),
-            "test_indices": test_indices.tolist(),
-        },
-        "best_k": best.k,
-        "cv_results": [result.as_dict() for result in cv_results],
-        "best_cv_mean_accuracy": best.mean_accuracy,
-        "best_cv_std_accuracy": best.std_accuracy,
-        "test_accuracy": test_accuracy,
-        "test_correct": int(np.count_nonzero(predictions == y_test)),
-        "classification_report": report,
-        "confusion_matrix": matrix.tolist(),
-    }
-    (OUTPUT_DIR / "metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (OUTPUT_DIR / "classification_report.txt").write_text(report_text, encoding="utf-8")
-    save_plots(cv_results, best.k, matrix, class_names)
-    print(f"\n指标、逐样本预测及图表已保存至：{OUTPUT_DIR}")
-
-
-if __name__ == "__main__":
-    main()
+        writer.writerow([result.k, *result.fold_scores, result.mean_accuracy, result.std_accuracy])
+with (OUTPUT_DIR / "test_predictions.csv").open("w", encoding="utf-8", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(["sample_index", *iris.feature_names, "true_label", "predicted_label", "true_name", "predicted_name", "correct"])
+    for index, true_label, predicted_label in zip(test_indices, y_test, predictions, strict=True):
+        writer.writerow(
+            [
+                index,
+                *x[index],
+                true_label,
+                predicted_label,
+                class_names[true_label],
+                class_names[predicted_label],
+                bool(true_label == predicted_label),
+            ]
+        )
+metrics = {
+    "config": {
+        "random_state": RANDOM_STATE,
+        "test_size": TEST_SIZE,
+        "n_splits": N_SPLITS,
+        "k_values": list(K_VALUES),
+        "distance": "euclidean",
+        "standardization": "StandardScaler fitted only on each training partition",
+        "vote_tie_break": "smallest class label",
+        "selection_tie_break": "smallest k",
+    },
+    "environment": {
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "packages": {name: version(name) for name in ("numpy", "scikit-learn", "matplotlib")},
+    },
+    "dataset": {
+        "n_samples": len(y),
+        "n_features": x.shape[1],
+        "class_names": class_names,
+        "train_size": len(y_train),
+        "test_size": len(y_test),
+        "train_class_counts": np.bincount(y_train, minlength=len(class_names)).tolist(),
+        "test_class_counts": np.bincount(y_test, minlength=len(class_names)).tolist(),
+        "train_indices": train_indices.tolist(),
+        "test_indices": test_indices.tolist(),
+    },
+    "best_k": best.k,
+    "cv_results": [result.as_dict() for result in cv_results],
+    "best_cv_mean_accuracy": best.mean_accuracy,
+    "best_cv_std_accuracy": best.std_accuracy,
+    "test_accuracy": test_accuracy,
+    "test_correct": int(np.count_nonzero(predictions == y_test)),
+    "classification_report": report,
+    "confusion_matrix": matrix.tolist(),
+}
+(OUTPUT_DIR / "metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+(OUTPUT_DIR / "classification_report.txt").write_text(report_text, encoding="utf-8")
+save_plots(cv_results, best.k, matrix, class_names)
+print(f"\n指标、逐样本预测及图表已保存至：{OUTPUT_DIR}")
