@@ -1,0 +1,25 @@
+default: archive
+
+archive:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    name='202400130242-彭靖轩'
+    temp_dir="$(mktemp -d)"
+    trap 'rm -rf -- "$temp_dir"' EXIT
+    reports=()
+    for report in ../lab/*/report/main.pdf; do
+        [[ -f "$report" ]] || continue
+        lab_dir="${report%/report/main.pdf}"
+        number="${lab_dir##*/}"
+        [[ "$number" =~ ^[0-9]+$ ]] || continue
+        filename="${name}-实验${number}.pdf"
+        cp -- "$report" "$temp_dir/$filename"
+        reports+=("$filename")
+    done
+    if (( ${#reports[@]} == 0 )); then
+        echo '未找到 lab/数字目录/report/main.pdf' >&2
+        exit 1
+    fi
+    COPYFILE_DISABLE=1 tar -cJf "$temp_dir/$name.tar.xz" -C "$temp_dir" -- "${reports[@]}"
+    mv -- "$temp_dir/$name.tar.xz" "$name.tar.xz"
+    printf '已生成 %s.tar.xz（%s 份报告）\n' "$name" "${#reports[@]}"
