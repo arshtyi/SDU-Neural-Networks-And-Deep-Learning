@@ -1,5 +1,5 @@
 #import "@preview/numbly:0.1.0": numbly
-#import "@preview/pointless-size:0.1.2": zh, zihao
+#import "@preview/pointless-size:0.1.3": zh, zihao
 #import "@preview/codly:1.3.0": *
 #import "@preview/codly-languages:0.1.10": *
 
