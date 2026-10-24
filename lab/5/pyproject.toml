@@ -1,0 +1,31 @@
+[project]
+name = "lab5"
+version = "0.1.0"
+authors = [ { name = "arshtyi", email = "arshtyi@foxmail.com" } ]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=1.26.4,<2",
+    "scikit-learn>=1.6",
+    "torch==2.3.0",
+    "torchtext==0.18.0",
+    "torchdata==0.8.0",
+    "portalocker>=2.8,<3",
+]
+
+[tool.ruff]
+line-length = 150
+
+[tool.ruff.lint]
+extend-select = [ "I", "UP", "B", "SIM", "RUF", "PERF" ]
+
+[tool.ruff.format]
+quote-style  = "double"
+indent-style = "space"
+line-ending  = "lf"
+
+[tool.ty.src]
+include = [ "main.py" ]
+
+[dependency-groups]
+dev = [ "ruff>=0.16.6", "ty>=0.0.80" ]
