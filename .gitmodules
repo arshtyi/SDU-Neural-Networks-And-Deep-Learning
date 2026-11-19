@@ -1,0 +1,4 @@
+[submodule "lab/TriNDet"]
+	path = lab/TriNDet
+	url = git@github.com:arshtyi/TriNDet.git
+	branch = main
